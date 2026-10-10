@@ -117,16 +117,16 @@ showStats();
 $("mode").onclick = e => { e.stopPropagation(); S.restart = !S.restart; dirty = true; showStats(); };
 
 // ---------- audio: the song, decoded once, a fresh source per press ----------
-let ctx, analyser, gain, songBuf, src = null, startedAt = 0, levels;
+let ctx, analyser, gain, songBuf, src = null, startedAt = 0, levels, loading;
 async function ensureAudio() {
-  if (ctx) { if (ctx.state === "suspended") await ctx.resume(); return; }
+  if (ctx) { if (ctx.state === "suspended") await ctx.resume(); return loading; }   // every press waits for the song to finish decoding
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   gain = ctx.createGain(); gain.gain.value = 1;
   analyser = ctx.createAnalyser(); analyser.fftSize = 256; analyser.smoothingTimeConstant = 0.75;
   gain.connect(analyser); analyser.connect(ctx.destination);
   levels = new Uint8Array(analyser.frequencyBinCount);
-  const r = await fetch("song.m4a");
-  songBuf = await ctx.decodeAudioData(await r.arrayBuffer());
+  loading = fetch("song.m4a").then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => { songBuf = buf; });
+  return loading;
 }
 function clickSound() {           // a chunky "thunk" so the press feels real even mid-song
   const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
